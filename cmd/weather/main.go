@@ -85,7 +85,6 @@ func main() {
 
 	var url string
 	if regexp.MustCompile(`^\d{5}$`).MatchString(location) {
-		// It's a zipcode
 		if wantForecast {
 			url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?zip=%s,us&units=imperial&appid=%s",
 				location, apiKey)
@@ -94,7 +93,6 @@ func main() {
 				location, apiKey)
 		}
 	} else if regexp.MustCompile(`^[a-zA-Z]+, ?[A-Z]{2}$`).MatchString(location) {
-		// It's a city name
 		location = strings.Replace(location, ", ", ",", 1)
 		if wantForecast {
 			url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?q=%s,us&units=imperial&appid=%s",
@@ -137,7 +135,6 @@ func main() {
 		fmt.Printf("%s\n", header)
 		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 
-		// Show current conditions from first forecast item
 		if len(forecast.List) > 0 && len(forecast.List[0].Weather) > 0 {
 			fmt.Printf("Current Conditions: %s\n", forecast.List[0].Weather[0].Description)
 			fmt.Printf("Temperature: %.1f°F\n", forecast.List[0].Main.Temp)
@@ -150,13 +147,11 @@ func main() {
 		fmt.Printf("%s\n", header)
 		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 
-		// Group forecasts by day to show one forecast per day
 		var lastDate string
 		for _, item := range forecast.List {
 			date := strings.Split(item.DtTxt, " ")[0]
 			time := strings.Split(item.DtTxt, " ")[1]
 
-			// Only show the noon forecast for each day
 			if time == "12:00:00" {
 				if date != lastDate {
 					fmt.Printf("\n%s: ", date)
