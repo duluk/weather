@@ -278,8 +278,8 @@ func main() {
 			fmt.Printf("Conditions:  %s\n", weather.Weather[0].Description)
 		}
 		fmt.Printf("Temperature: %.1f°F\n", weather.Main.Temp)
-		fmt.Printf("  Min Temp:  %.1f°F\n", weather.Main.TempMin)
-		fmt.Printf("  Max Temp:  %.1f°F\n", weather.Main.TempMax)
+		fmt.Printf("  Min:       %.1f°F\n", weather.Main.TempMin)
+		fmt.Printf("  Max:       %.1f°F\n", weather.Main.TempMax)
 		fmt.Printf("Feels Like:  %.1f°F\n", weather.Main.FeelsLike)
 		fmt.Printf("Humidity:    %d%%\n", weather.Main.Humidity)
 		fmt.Printf("Wind Speed:  %.1f mph\n", weather.Wind.Speed)
