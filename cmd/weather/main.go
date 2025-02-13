@@ -66,10 +66,10 @@ func getAPIKey() (string, error) {
 
 func main() {
 	if len(os.Args) < 2 || len(os.Args) > 3 {
-		fmt.Println("Usage: go run main.go <zipcode or city,state> [forecast]")
-		fmt.Println("Examples: go run main.go 02108")
-		fmt.Println("          go run main.go \"Boston,MA\"")
-		fmt.Println("          go run main.go \"Boston,MA\" forecast")
+		fmt.Println("Usage: weather <zipcode or city,state> [forecast]")
+		fmt.Println("Examples: weather 02108")
+		fmt.Println("          weather \"Boston,MA\"")
+		fmt.Println("          weather \"Boston,MA\" forecast")
 		return
 	}
 
