@@ -9,6 +9,9 @@ import (
 	"os"
 	"regexp"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type WeatherData struct {
@@ -136,11 +139,11 @@ func main() {
 		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 
 		if len(forecast.List) > 0 && len(forecast.List[0].Weather) > 0 {
-			fmt.Printf("Current Conditions: %s\n", forecast.List[0].Weather[0].Description)
+			fmt.Printf("Current:     %s\n", forecast.List[0].Weather[0].Description)
 			fmt.Printf("Temperature: %.1f°F\n", forecast.List[0].Main.Temp)
-			fmt.Printf("Feels Like: %.1f°F\n", forecast.List[0].Main.FeelsLike)
-			fmt.Printf("Humidity: %d%%\n", forecast.List[0].Main.Humidity)
-			fmt.Printf("Wind Speed: %.1f mph\n\n", forecast.List[0].Wind.Speed)
+			fmt.Printf("Feels Like:  %.1f°F\n", forecast.List[0].Main.FeelsLike)
+			fmt.Printf("Humidity:    %d%%\n", forecast.List[0].Main.Humidity)
+			fmt.Printf("Wind Speed:  %.1f mph\n\n", forecast.List[0].Wind.Speed)
 		}
 
 		header = fmt.Sprintf("5-Day Forecast for %s:", forecast.City.Name)
@@ -156,13 +159,13 @@ func main() {
 				if date != lastDate {
 					fmt.Printf("\n%s: ", date)
 					if len(item.Weather) > 0 {
-						fmt.Printf("%s with a temp of %.1f°F ",
-							strings.Title(item.Weather[0].Description),
+						fmt.Printf("%-20s with a temp of %4.1f°F ",
+							cases.Title(language.English).String(item.Weather[0].Description),
 							item.Main.Temp)
 					}
-					fmt.Printf("(real feel %.1f°F) ", item.Main.FeelsLike)
+					fmt.Printf("(real feel %4.1f°F) ", item.Main.FeelsLike)
 					if item.Wind.Speed > 0 {
-						fmt.Printf("Winds up to %.1f mph", item.Wind.Speed)
+						fmt.Printf("Winds up to %4.1f mph", item.Wind.Speed)
 					}
 					if item.Main.Humidity > 0 {
 						fmt.Printf(" and %d%% humidity", item.Main.Humidity)
@@ -182,11 +185,11 @@ func main() {
 		fmt.Printf("%s\n", header)
 		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 		if len(weather.Weather) > 0 {
-			fmt.Printf("Conditions: %s\n", weather.Weather[0].Description)
+			fmt.Printf("Conditions:  %s\n", weather.Weather[0].Description)
 		}
 		fmt.Printf("Temperature: %.1f°F\n", weather.Main.Temp)
-		fmt.Printf("Feels Like: %.1f°F\n", weather.Main.FeelsLike)
-		fmt.Printf("Humidity: %d%%\n", weather.Main.Humidity)
-		fmt.Printf("Wind Speed: %.1f mph\n", weather.Wind.Speed)
+		fmt.Printf("Feels Like:  %.1f°F\n", weather.Main.FeelsLike)
+		fmt.Printf("Humidity:    %d%%\n", weather.Main.Humidity)
+		fmt.Printf("Wind Speed:  %.1f mph\n", weather.Wind.Speed)
 	}
 }
