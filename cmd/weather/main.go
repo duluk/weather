@@ -63,7 +63,7 @@ type WeatherData struct {
 	} `json:"sys"`
 	Visibility int    `json:"visibility"`
 	Name       string `json:"name"`
-	RespCode   string `json:"cod"`
+	RespCode   int    `json:"cod"`
 }
 
 type ForecastData struct {
@@ -128,63 +128,92 @@ func getAPIKey() (string, error) {
 }
 
 func main() {
-	if len(os.Args) < 2 || len(os.Args) > 3 {
-		fmt.Println("Usage: weather <zipcode or city,state> [forecast]")
+	if len(os.Args) < 2 {
+		fmt.Println("Usage: weather <zipcode or city,state> [forecast] [-test]")
 		fmt.Println("Examples: weather 02108")
 		fmt.Println("          weather \"Boston,MA\"")
 		fmt.Println("          weather \"Boston,MA\" forecast")
+		fmt.Println("          weather \"Boston,MA\" forecast -test")
 		return
 	}
 
 	location := os.Args[1]
-	wantForecast := len(os.Args) == 3 && os.Args[2] == "forecast"
+	wantForecast := false
+	useTestData := false
 
-	apiKey, err := getAPIKey()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		fmt.Println("Please set the Open Weather API key, either via the environment variable, OPENWEATHER_API_KEY, or a file in ~/.config/weather/openweather_api_key")
-		return
+	// Parse flags
+	for i := 2; i < len(os.Args); i++ {
+		switch os.Args[i] {
+		case "forecast":
+			wantForecast = true
+		case "-test":
+			useTestData = true
+		}
 	}
 
-	var url string
-	if regexp.MustCompile(`^\d{5}$`).MatchString(location) {
+	var body []byte
+	var err error
+
+	if useTestData {
+		// Use local test files
+		filename := "weather.weather.json"
 		if wantForecast {
-			url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?zip=%s,us&units=imperial&appid=%s",
-				location, apiKey)
-		} else {
-			url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?zip=%s,us&units=imperial&appid=%s",
-				location, apiKey)
+			filename = "weather.forecast.json"
 		}
-	} else if regexp.MustCompile(`^[a-zA-Z]+, ?[A-Z]{2}$`).MatchString(location) {
-		location = strings.Replace(location, ", ", ",", 1)
-		if wantForecast {
-			url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?q=%s,us&units=imperial&appid=%s",
-				netURL.QueryEscape(location), apiKey)
-		} else {
-			url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?q=%s,us&units=imperial&appid=%s",
-				netURL.QueryEscape(location), apiKey)
+		body, err = os.ReadFile(filename)
+		if err != nil {
+			fmt.Printf("Error reading test file %s: %v\n", filename, err)
+			return
 		}
 	} else {
-		fmt.Println("Invalid location format. Please provide a zipcode or city,state")
-		return
-	}
+		// Original API call code
+		apiKey, err := getAPIKey()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			fmt.Println("Please set the Open Weather API key, either via the environment variable, OPENWEATHER_API_KEY, or a file in ~/.config/weather/openweather_api_key")
+			return
+		}
 
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Printf("Error making request: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
+		var url string
+		if regexp.MustCompile(`^\d{5}$`).MatchString(location) {
+			if wantForecast {
+				url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?zip=%s,us&units=imperial&appid=%s",
+					location, apiKey)
+			} else {
+				url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?zip=%s,us&units=imperial&appid=%s",
+					location, apiKey)
+			}
+		} else if regexp.MustCompile(`^[a-zA-Z]+, ?[A-Z]{2}$`).MatchString(location) {
+			location = strings.Replace(location, ", ", ",", 1)
+			if wantForecast {
+				url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/forecast?q=%s,us&units=imperial&appid=%s",
+					netURL.QueryEscape(location), apiKey)
+			} else {
+				url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?q=%s,us&units=imperial&appid=%s",
+					netURL.QueryEscape(location), apiKey)
+			}
+		} else {
+			fmt.Println("Invalid location format. Please provide a zipcode or city,state")
+			return
+		}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading response: %v\n", err)
-		return
-	}
+		resp, err := http.Get(url)
+		if err != nil {
+			fmt.Printf("Error making request: %v\n", err)
+			return
+		}
+		defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Error: API returned status %d: %s\n", resp.StatusCode, string(body))
-		return
+		body, err = io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Printf("Error reading response: %v\n", err)
+			return
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			fmt.Printf("Error: API returned status %d: %s\n", resp.StatusCode, string(body))
+			return
+		}
 	}
 
 	if wantForecast {
