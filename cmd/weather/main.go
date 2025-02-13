@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	netURL "net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -44,16 +45,13 @@ func getAPIKey() (string, error) {
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Println("Usage: go run main.go <zipcode>")
+		fmt.Println("Usage: go run main.go <zipcode or city,state>")
+		fmt.Println("Examples: go run main.go 02108")
+		fmt.Println("          go run main.go \"Boston,MA\"")
 		return
 	}
 
-	zipcode := os.Args[1]
-	if !regexp.MustCompile(`^\d{5}$`).MatchString(zipcode) {
-		fmt.Println("Invalid zipcode format. Please provide a 5-digit US zipcode")
-		return
-	}
-
+	location := os.Args[1]
 	apiKey, err := getAPIKey()
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
@@ -61,8 +59,20 @@ func main() {
 		return
 	}
 
-	url := fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?zip=%s,us&units=imperial&appid=%s",
-		zipcode, apiKey)
+	var url string
+	if regexp.MustCompile(`^\d{5}$`).MatchString(location) {
+		// It's a zipcode
+		url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?zip=%s,us&units=imperial&appid=%s",
+			location, apiKey)
+	} else if regexp.MustCompile(`^[a-zA-Z]+, ?[A-Z]{2}$`).MatchString(location) {
+		// It's a city name - remove any space after comma and URL encode
+		location = strings.Replace(location, ", ", ",", 1)
+		url = fmt.Sprintf("http://api.openweathermap.org/data/2.5/weather?q=%s,us&units=imperial&appid=%s",
+			netURL.QueryEscape(location), apiKey)
+	} else {
+		fmt.Println("Invalid location format. Please provide a zipcode or city,state")
+		return
+	}
 
 	resp, err := http.Get(url)
 	if err != nil {
