@@ -14,40 +14,100 @@ import (
 	"golang.org/x/text/language"
 )
 
+/*
+	OpenWeather API Response Codes
+	Success codes
+	200  // Success for current weather data
+	201  // Success for forecast data
+
+	Error codes
+	400  // Bad request (e.g., invalid parameters)
+	401  // Unauthorized (invalid API key)
+	404  // City not found
+	429  // Too many requests (exceeded rate limit)
+	500  // Internal server error
+*/
+
 type WeatherData struct {
+	DateTime    int64 `json:"dt"`
+	TimeZone    int   `json:"timezone"`
+	Coordinates struct {
+		Latitude  float64 `json:"lat"`
+		Longitude float64 `json:"lon"`
+	} `json:"coord"`
+	Base    string `json:"base"`
 	Weather []struct {
 		Description string `json:"description"`
 	} `json:"weather"`
 	Main struct {
-		Temp      float64 `json:"temp"`
-		FeelsLike float64 `json:"feels_like"`
-		Humidity  int     `json:"humidity"`
+		Temp        float64 `json:"temp"`
+		TempMin     float64 `json:"temp_min"`
+		TempMax     float64 `json:"temp_max"`
+		FeelsLike   float64 `json:"feels_like"`
+		Humidity    int     `json:"humidity"`
+		Pressure    int     `json:"pressure"`
+		SeaLevel    int     `json:"sea_level"`
+		GroundLevel int     `json:"grnd_level"`
 	} `json:"main"`
 	Wind struct {
 		Speed float64 `json:"speed"`
+		Gust  float64 `json:"gust"`
+		Deg   int     `json:"deg"`
 	} `json:"wind"`
-	Name string `json:"name"`
+	Clouds struct {
+		Percentage int `json:"all"`
+	} `json:"clouds"`
+	Sys struct {
+		Sunrise int64 `json:"sunrise"`
+		Sunset  int64 `json:"sunset"`
+	} `json:"sys"`
+	Visibility int    `json:"visibility"`
+	Name       string `json:"name"`
+	RespCode   string `json:"cod"`
 }
 
 type ForecastData struct {
-	List []struct {
-		Dt   int64 `json:"dt"`
-		Main struct {
-			Temp      float64 `json:"temp"`
-			FeelsLike float64 `json:"feels_like"`
-			Humidity  int     `json:"humidity"`
+	Count int `json:"cnt"`
+	List  []struct {
+		DateTime int64 `json:"dt"`
+		Main     struct {
+			Temp        float64 `json:"temp"`
+			TempMin     float64 `json:"temp_min"`
+			TempMax     float64 `json:"temp_max"`
+			FeelsLike   float64 `json:"feels_like"`
+			Humidity    int     `json:"humidity"`
+			Pressure    int     `json:"pressure"`
+			SeaLevel    int     `json:"sea_level"`
+			GroundLevel int     `json:"grnd_level"`
+			TempKf      float64 `json:"temp_kf"`
 		} `json:"main"`
 		Weather []struct {
 			Description string `json:"description"`
 		} `json:"weather"`
+		Clouds struct {
+			Percentage int `json:"all"`
+		} `json:"clouds"`
 		Wind struct {
 			Speed float64 `json:"speed"`
+			Gust  float64 `json:"gust"`
+			Deg   int     `json:"deg"`
 		} `json:"wind"`
-		DtTxt string `json:"dt_txt"`
+		DateText   string `json:"dt_txt"`
+		Visibility int    `json:"visibility"`
 	} `json:"list"`
 	City struct {
-		Name string `json:"name"`
+		Name        string `json:"name"`
+		Coordinates struct {
+			Latitude  float64 `json:"lat"`
+			Longitude float64 `json:"lon"`
+		} `json:"coord"`
+		Country    string `json:"country"`
+		Population int    `json:"population"`
+		TimeZone   int    `json:"timezone"`
+		Sunrise    int64  `json:"sunrise"`
+		Sunset     int64  `json:"sunset"`
 	} `json:"city"`
+	RespCode string `json:"cod"`
 }
 
 func getAPIKey() (string, error) {
@@ -141,6 +201,8 @@ func main() {
 		if len(forecast.List) > 0 && len(forecast.List[0].Weather) > 0 {
 			fmt.Printf("Current:     %s\n", forecast.List[0].Weather[0].Description)
 			fmt.Printf("Temperature: %.1f°F\n", forecast.List[0].Main.Temp)
+			fmt.Printf("  Min:       %.1f°F\n", forecast.List[0].Main.TempMin)
+			fmt.Printf("  Max:       %.1f°F\n", forecast.List[0].Main.TempMax)
 			fmt.Printf("Feels Like:  %.1f°F\n", forecast.List[0].Main.FeelsLike)
 			fmt.Printf("Humidity:    %d%%\n", forecast.List[0].Main.Humidity)
 			fmt.Printf("Wind Speed:  %.1f mph\n\n", forecast.List[0].Wind.Speed)
@@ -152,18 +214,17 @@ func main() {
 
 		var lastDate string
 		for _, item := range forecast.List {
-			date := strings.Split(item.DtTxt, " ")[0]
-			time := strings.Split(item.DtTxt, " ")[1]
+			date := strings.Split(item.DateText, " ")[0]
+			time := strings.Split(item.DateText, " ")[1]
 
 			if time == "12:00:00" {
 				if date != lastDate {
 					fmt.Printf("\n%s: ", date)
 					if len(item.Weather) > 0 {
-						fmt.Printf("%-20s with a temp of %4.1f°F ",
+						fmt.Printf("%-20s with a high of %4.1f°F and a low of %4.1f°F.",
 							cases.Title(language.English).String(item.Weather[0].Description),
-							item.Main.Temp)
+							item.Main.TempMax, item.Main.TempMin)
 					}
-					fmt.Printf("(real feel %4.1f°F) ", item.Main.FeelsLike)
 					if item.Wind.Speed > 0 {
 						fmt.Printf("Winds up to %4.1f mph", item.Wind.Speed)
 					}
@@ -188,6 +249,8 @@ func main() {
 			fmt.Printf("Conditions:  %s\n", weather.Weather[0].Description)
 		}
 		fmt.Printf("Temperature: %.1f°F\n", weather.Main.Temp)
+		fmt.Printf("  Min Temp:  %.1f°F\n", weather.Main.TempMin)
+		fmt.Printf("  Max Temp:  %.1f°F\n", weather.Main.TempMax)
 		fmt.Printf("Feels Like:  %.1f°F\n", weather.Main.FeelsLike)
 		fmt.Printf("Humidity:    %d%%\n", weather.Main.Humidity)
 		fmt.Printf("Wind Speed:  %.1f mph\n", weather.Wind.Speed)
