@@ -8,6 +8,7 @@ import (
 	netURL "net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -129,7 +130,7 @@ func getAPIKey() (string, error) {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: weather <zipcode or city,state> [forecast] [-test]")
+		fmt.Println("Usage: weather <zipcode or city,state> [forecast] [-test] [-debug]")
 		fmt.Println("Examples: weather 02108")
 		fmt.Println("          weather \"Boston,MA\"")
 		fmt.Println("          weather \"Boston,MA\" forecast")
@@ -140,6 +141,7 @@ func main() {
 	location := os.Args[1]
 	wantForecast := false
 	useTestData := false
+	debugMode := false
 
 	// Parse flags
 	for i := 2; i < len(os.Args); i++ {
@@ -148,6 +150,8 @@ func main() {
 			wantForecast = true
 		case "-test":
 			useTestData = true
+		case "-debug":
+			debugMode = true
 		}
 	}
 
@@ -204,6 +208,10 @@ func main() {
 		}
 		defer resp.Body.Close()
 
+		if debugMode {
+			fmt.Printf("Debug raw response: %s\n", resp.Body)
+		}
+
 		body, err = io.ReadAll(resp.Body)
 		if err != nil {
 			fmt.Printf("Error reading response: %v\n", err)
@@ -223,6 +231,10 @@ func main() {
 			return
 		}
 
+		// if debugMode {
+		// 	fmt.Printf("Debug raw forecast: %+v\n", forecast)
+		// }
+
 		header := fmt.Sprintf("Weather Summary for %s:", forecast.City.Name)
 		fmt.Printf("%s\n", header)
 		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
@@ -230,8 +242,8 @@ func main() {
 		if len(forecast.List) > 0 && len(forecast.List[0].Weather) > 0 {
 			fmt.Printf("Current:     %s\n", forecast.List[0].Weather[0].Description)
 			fmt.Printf("Temperature: %.1f°F\n", forecast.List[0].Main.Temp)
-			fmt.Printf("  Min:       %.1f°F\n", forecast.List[0].Main.TempMin)
 			fmt.Printf("  Max:       %.1f°F\n", forecast.List[0].Main.TempMax)
+			fmt.Printf("  Min:       %.1f°F\n", forecast.List[0].Main.TempMin)
 			fmt.Printf("Feels Like:  %.1f°F\n", forecast.List[0].Main.FeelsLike)
 			fmt.Printf("Humidity:    %d%%\n", forecast.List[0].Main.Humidity)
 			fmt.Printf("Wind Speed:  %.1f mph\n\n", forecast.List[0].Wind.Speed)
@@ -241,29 +253,76 @@ func main() {
 		fmt.Printf("%s\n", header)
 		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 
-		var lastDate string
+		type DayForecast struct {
+			High        float64
+			Low         float64
+			Description string
+			WindSpeed   float64
+			Humidity    int
+		}
+		dailyForecasts := make(map[string]*DayForecast)
+
 		for _, item := range forecast.List {
 			date := strings.Split(item.DateText, " ")[0]
 			time := strings.Split(item.DateText, " ")[1]
 
-			if time == "12:00:00" {
-				if date != lastDate {
-					fmt.Printf("%s: ", date)
-					if len(item.Weather) > 0 {
-						fmt.Printf("%-20s with a high of %4.1f°F and a low of %4.1f°F.",
-							cases.Title(language.English).String(item.Weather[0].Description),
-							item.Main.TempMax,
-							item.Main.TempMin)
-					}
-					if item.Wind.Speed > 0 {
-						fmt.Printf("Winds up to %4.1f mph", item.Wind.Speed)
-					}
-					if item.Main.Humidity > 0 {
-						fmt.Printf(" and %d%% humidity\n", item.Main.Humidity)
-					}
-					lastDate = date
+			// Only process readings between 06:00 and 00:00
+			hour := strings.Split(time, ":")[0]
+			if hour < "06" {
+				continue
+			}
+
+			if _, exists := dailyForecasts[date]; !exists {
+				dailyForecasts[date] = &DayForecast{
+					High:        -1000,
+					Low:         1000,
+					Description: item.Weather[0].Description,
+					WindSpeed:   0,
+					Humidity:    item.Main.Humidity,
 				}
 			}
+
+			day := dailyForecasts[date]
+			// Use the provided max/min temperatures
+			if item.Main.TempMax > day.High {
+				day.High = item.Main.TempMax
+			}
+			if item.Main.TempMin < day.Low {
+				day.Low = item.Main.TempMin
+			}
+			// Track highest wind speed from any interval
+			if item.Wind.Speed > day.WindSpeed {
+				day.WindSpeed = item.Wind.Speed
+			}
+
+			// Still use noon for the general description and humidity
+			if strings.Contains(item.DateText, "12:00:00") {
+				day.Description = item.Weather[0].Description
+				day.Humidity = item.Main.Humidity
+			}
+		}
+
+		// Output the daily forecasts in order
+		var dates []string
+		for date := range dailyForecasts {
+			dates = append(dates, date)
+		}
+		sort.Strings(dates)
+
+		for _, date := range dates {
+			day := dailyForecasts[date]
+			fmt.Printf("%s: ", date)
+			fmt.Printf("%-20s High: %4.1f°F. Low: %4.1f°F.",
+				cases.Title(language.English).String(day.Description),
+				day.High,
+				day.Low)
+			if day.WindSpeed > 0 {
+				fmt.Printf(" Max winds: %4.1f mph.", day.WindSpeed)
+			}
+			if day.Humidity > 0 {
+				fmt.Printf(" Humidity: %d%%.", day.Humidity)
+			}
+			fmt.Println()
 		}
 	} else {
 		var weather WeatherData
@@ -279,8 +338,8 @@ func main() {
 			fmt.Printf("Conditions:  %s\n", weather.Weather[0].Description)
 		}
 		fmt.Printf("Temperature: %.1f°F\n", weather.Main.Temp)
-		fmt.Printf("  Min:       %.1f°F\n", weather.Main.TempMin)
 		fmt.Printf("  Max:       %.1f°F\n", weather.Main.TempMax)
+		fmt.Printf("  Min:       %.1f°F\n", weather.Main.TempMin)
 		fmt.Printf("Feels Like:  %.1f°F\n", weather.Main.FeelsLike)
 		fmt.Printf("Humidity:    %d%%\n", weather.Main.Humidity)
 		fmt.Printf("Wind Speed:  %.1f mph\n", weather.Wind.Speed)
