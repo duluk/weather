@@ -199,7 +199,9 @@ func (p *Provider) processForecastData(data *ForecastData) []weather.DailyForeca
 		date := strings.Split(item.DateText, " ")[0]
 		time := strings.Split(item.DateText, " ")[1]
 
-		// Only process readings between 06:00 and 00:00
+		// Process between 6am and midnight only, trying to get a better feel
+		// for the day high/low. From midnight to 6am can skew the expected
+		// results.
 		hour := strings.Split(time, ":")[0]
 		if hour < "06" {
 			continue
@@ -232,7 +234,6 @@ func (p *Provider) processForecastData(data *ForecastData) []weather.DailyForeca
 		}
 	}
 
-	// Convert to sorted slice
 	var dates []string
 	for date := range dailyForecasts {
 		dates = append(dates, date)
@@ -311,5 +312,3 @@ func (p *Provider) buildURL(location string, forecast bool) string {
 	return fmt.Sprintf("http://api.openweathermap.org/data/2.5/%s?q=%s,us&units=imperial&appid=%s",
 		endpoint, url.QueryEscape(location), p.apiKey)
 }
-
-// Helper methods for processing forecast data...

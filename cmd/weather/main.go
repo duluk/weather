@@ -87,7 +87,6 @@ func main() {
 	useTestData := false
 	debugMode := false
 
-	// Parse flags
 	for i := 2; i < len(os.Args); i++ {
 		switch os.Args[i] {
 		case "forecast":
