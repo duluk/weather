@@ -248,17 +248,18 @@ func main() {
 
 			if time == "12:00:00" {
 				if date != lastDate {
-					fmt.Printf("\n%s: ", date)
+					fmt.Printf("%s: ", date)
 					if len(item.Weather) > 0 {
 						fmt.Printf("%-20s with a high of %4.1f°F and a low of %4.1f°F.",
 							cases.Title(language.English).String(item.Weather[0].Description),
-							item.Main.TempMax, item.Main.TempMin)
+							item.Main.TempMax,
+							item.Main.TempMin)
 					}
 					if item.Wind.Speed > 0 {
 						fmt.Printf("Winds up to %4.1f mph", item.Wind.Speed)
 					}
 					if item.Main.Humidity > 0 {
-						fmt.Printf(" and %d%% humidity", item.Main.Humidity)
+						fmt.Printf(" and %d%% humidity\n", item.Main.Humidity)
 					}
 					lastDate = date
 				}
