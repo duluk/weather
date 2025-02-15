@@ -60,8 +60,8 @@ func displayForecast(f *weather.Forecast) {
 
 	for _, day := range f.DailyItems {
 		fmt.Printf("%s %s: ",
-			day.Date.Format("Mon"),        // Day of week
-			day.Date.Format("2006-01-02")) // Date
+			day.Date.Format("Mon"),
+			day.Date.Format("2006-01-02"))
 		fmt.Printf("%-25s High: %4.1f°F. Low: %4.1f°F.",
 			cases.Title(language.English).String(day.Conditions),
 			day.High,

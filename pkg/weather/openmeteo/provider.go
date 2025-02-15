@@ -41,7 +41,6 @@ import (
 }
 */
 
-// Update the WeatherResponse struct to match the API fields
 type WeatherResponse struct {
 	CurrentWeather struct {
 		Temperature      float64 `json:"temperature_2m"`
@@ -158,7 +157,6 @@ func (p *Provider) GetCurrentWeather(location string) (*weather.CurrentWeather, 
 		return nil, err
 	}
 
-	// Add today_temperature_2m_max and today_temperature_2m_min to get today's high/low
 	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min",
 		coords.Latitude, coords.Longitude)
 	if p.debugMode {
@@ -175,8 +173,8 @@ func (p *Provider) GetCurrentWeather(location string) (*weather.CurrentWeather, 
 
 	var highTemp, lowTemp float64
 	if len(data.Daily.TempMax) > 0 && len(data.Daily.TempMin) > 0 {
-		highTemp = data.Daily.TempMax[0] // Today's high temperature
-		lowTemp = data.Daily.TempMin[0]  // Today's low temperature
+		highTemp = data.Daily.TempMax[0]
+		lowTemp = data.Daily.TempMin[0]
 	}
 
 	return &weather.CurrentWeather{
@@ -214,10 +212,9 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 		return nil, fmt.Errorf("insufficient forecast data available")
 	}
 
-	// Skip today (index 0) and take the next 5 days
 	dailyItems := make([]weather.DailyForecast, 5)
 	for i := 0; i < 5; i++ {
-		sourceIdx := i + 1 // Skip the first day
+		sourceIdx := i + 1 // Skip the first, current, day
 		date, _ := time.Parse("2006-01-02", data.Daily.Time[sourceIdx])
 		dailyItems[i] = weather.DailyForecast{
 			Date:       date,
@@ -229,11 +226,10 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 		}
 	}
 
-	// Get today's high/low from the first element of daily data
 	var highTemp, lowTemp float64
 	if len(data.Daily.TempMax) > 0 && len(data.Daily.TempMin) > 0 {
-		highTemp = data.Daily.TempMax[0] // Today's high temperature
-		lowTemp = data.Daily.TempMin[0]  // Today's low temperature
+		highTemp = data.Daily.TempMax[0]
+		lowTemp = data.Daily.TempMin[0]
 	}
 
 	current := &weather.CurrentWeather{
