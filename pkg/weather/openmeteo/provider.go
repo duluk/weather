@@ -13,10 +13,38 @@ import (
 	"github.com/duluk/weather/pkg/weather"
 )
 
+/* --> Response to GetCurrentWeather:
+{
+  "latitude": 32.33599,
+  "longitude": -90.32324,
+  "generationtime_ms": 0.06186962127685547,
+  "utc_offset_seconds": 0,
+  "timezone": "GMT",
+  "timezone_abbreviation": "GMT",
+  "elevation": 112.0,
+  "current_units": {
+    "time": "iso8601",
+    "interval": "seconds",
+    "temperature_2m": "°F",
+    "relativehumidity_2m": "%",
+    "weathercode": "wmo code",
+    "windspeed_10m": "km/h"
+  },
+  "current": {
+    "time": "2025-02-15T03:30",
+    "interval": 900,
+    "temperature_2m": 52.8,
+    "relativehumidity_2m": 62,
+    "weathercode": 3,
+    "windspeed_10m": 12.5
+  }
+}
+*/
+
 type WeatherResponse struct {
 	CurrentWeather struct {
-		Temperature      float64 `json:"temperature"`
-		WindSpeed        float64 `json:"windspeed"`
+		Temperature      float64 `json:"temperature_2m"`
+		WindSpeed        float64 `json:"windspeed_10m"`
 		WeatherCode      int     `json:"weathercode"`
 		RelativeHumidity int     `json:"relativehumidity_2m"`
 	} `json:"current"`
@@ -34,7 +62,7 @@ type Provider struct {
 	debugMode bool
 }
 
-/* Example structure response:
+/* Example Geocoding structure response:
 {
   "id": 4852022,
   "name": "Clinton",
@@ -131,12 +159,24 @@ func (p *Provider) GetCurrentWeather(location string) (*weather.CurrentWeather, 
 		return nil, err
 	}
 
-	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit",
+	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&daily=temperature_2m_max,temperature_2m_min",
 		coords.Latitude, coords.Longitude)
+	if p.debugMode {
+		fmt.Printf("Debug URL: %s\n", url)
+	}
 
 	var data WeatherResponse
 	if err := p.fetchData(url, &data); err != nil {
 		return nil, err
+	}
+	if p.debugMode {
+		fmt.Printf("Debug data: %+v\n", data)
+	}
+
+	var highTemp, lowTemp float64
+	if len(data.Daily.TempMax) > 0 && len(data.Daily.TempMin) > 0 {
+		highTemp = data.Daily.TempMax[0] // First day's high temperature
+		lowTemp = data.Daily.TempMin[0]  // First day's low temperature
 	}
 
 	return &weather.CurrentWeather{
@@ -146,6 +186,8 @@ func (p *Provider) GetCurrentWeather(location string) (*weather.CurrentWeather, 
 		FeelsLike:   data.CurrentWeather.Temperature, // Open-Meteo free tier doesn't provide feels-like
 		Humidity:    data.CurrentWeather.RelativeHumidity,
 		WindSpeed:   data.CurrentWeather.WindSpeed,
+		TempMax:     highTemp,
+		TempMin:     lowTemp,
 	}, nil
 }
 
@@ -157,6 +199,9 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 
 	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&daily=weathercode,temperature_2m_max,temperature_2m_min,windspeed_10m_max,relativehumidity_2m_max&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit",
 		coords.Latitude, coords.Longitude)
+	if p.debugMode {
+		fmt.Printf("Debug URL: %s\n", url)
+	}
 
 	var data WeatherResponse
 	if err := p.fetchData(url, &data); err != nil {

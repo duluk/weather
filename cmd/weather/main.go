@@ -142,6 +142,10 @@ func main() {
 			fmt.Printf("Error getting current weather: %v\n", err)
 			return
 		}
+		if debugMode {
+			fmt.Printf("Current weather: %v\n", current)
+		}
+
 		displayCurrentWeather(current)
 	}
 }
