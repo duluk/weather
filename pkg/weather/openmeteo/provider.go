@@ -41,6 +41,7 @@ import (
 }
 */
 
+// Update the WeatherResponse struct to match the API fields
 type WeatherResponse struct {
 	CurrentWeather struct {
 		Temperature      float64 `json:"temperature_2m"`
@@ -54,7 +55,7 @@ type WeatherResponse struct {
 		TempMin          []float64 `json:"temperature_2m_min"`
 		WindSpeed        []float64 `json:"windspeed_10m_max"`
 		WeatherCode      []int     `json:"weathercode"`
-		RelativeHumidity []int     `json:"relativehumidity_2m_max"`
+		RelativeHumidity []int     `json:"relative_humidity_2m_max"`
 	} `json:"daily"`
 }
 
@@ -103,8 +104,6 @@ type GeocodingResponse struct {
 }
 
 func (p *Provider) getCoordinates(location string) (*GeocodingResult, error) {
-	fmt.Printf("location: %s\n", location)
-
 	var count int
 	var state string
 	if regexp.MustCompile(`^[0-9]{5}$`).MatchString(location) {
@@ -159,10 +158,11 @@ func (p *Provider) GetCurrentWeather(location string) (*weather.CurrentWeather, 
 		return nil, err
 	}
 
-	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&daily=temperature_2m_max,temperature_2m_min",
+	// Add today_temperature_2m_max and today_temperature_2m_min to get today's high/low
+	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&timezone=auto&forecast_days=1&daily=temperature_2m_max,temperature_2m_min",
 		coords.Latitude, coords.Longitude)
 	if p.debugMode {
-		fmt.Printf("Debug URL: %s\n", url)
+		fmt.Printf("Debug GetCurrentWeather URL: %s\n", url)
 	}
 
 	var data WeatherResponse
@@ -170,20 +170,20 @@ func (p *Provider) GetCurrentWeather(location string) (*weather.CurrentWeather, 
 		return nil, err
 	}
 	if p.debugMode {
-		fmt.Printf("Debug data: %+v\n", data)
+		fmt.Printf("Debug GetCurrentWeather data: %+v\n", data)
 	}
 
 	var highTemp, lowTemp float64
 	if len(data.Daily.TempMax) > 0 && len(data.Daily.TempMin) > 0 {
-		highTemp = data.Daily.TempMax[0] // First day's high temperature
-		lowTemp = data.Daily.TempMin[0]  // First day's low temperature
+		highTemp = data.Daily.TempMax[0] // Today's high temperature
+		lowTemp = data.Daily.TempMin[0]  // Today's low temperature
 	}
 
 	return &weather.CurrentWeather{
 		Location:    coords.Name,
 		Conditions:  p.getWeatherDescription(data.CurrentWeather.WeatherCode),
 		Temperature: data.CurrentWeather.Temperature,
-		FeelsLike:   data.CurrentWeather.Temperature, // Open-Meteo free tier doesn't provide feels-like
+		FeelsLike:   data.CurrentWeather.Temperature,
 		Humidity:    data.CurrentWeather.RelativeHumidity,
 		WindSpeed:   data.CurrentWeather.WindSpeed,
 		TempMax:     highTemp,
@@ -197,10 +197,12 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 		return nil, err
 	}
 
-	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&daily=weathercode,temperature_2m_max,temperature_2m_min,windspeed_10m_max,relativehumidity_2m_max&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit",
+	// Request 6 days to get enough data (today + 5 future days)
+	url := fmt.Sprintf("https://api.open-meteo.com/v1/forecast?latitude=%f&longitude=%f&daily=weathercode,temperature_2m_max,temperature_2m_min,windspeed_10m_max,relative_humidity_2m_max&current=temperature_2m,relativehumidity_2m,weathercode,windspeed_10m&temperature_unit=fahrenheit&timezone=auto&forecast_days=6",
 		coords.Latitude, coords.Longitude)
+
 	if p.debugMode {
-		fmt.Printf("Debug URL: %s\n", url)
+		fmt.Printf("Debug GetForecast URL: %s\n", url)
 	}
 
 	var data WeatherResponse
@@ -208,17 +210,30 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 		return nil, err
 	}
 
-	dailyItems := make([]weather.DailyForecast, len(data.Daily.Time))
-	for i := range data.Daily.Time {
-		date, _ := time.Parse("2006-01-02", data.Daily.Time[i])
+	if len(data.Daily.Time) < 2 {
+		return nil, fmt.Errorf("insufficient forecast data available")
+	}
+
+	// Skip today (index 0) and take the next 5 days
+	dailyItems := make([]weather.DailyForecast, 5)
+	for i := 0; i < 5; i++ {
+		sourceIdx := i + 1 // Skip the first day
+		date, _ := time.Parse("2006-01-02", data.Daily.Time[sourceIdx])
 		dailyItems[i] = weather.DailyForecast{
 			Date:       date,
-			Conditions: p.getWeatherDescription(data.Daily.WeatherCode[i]),
-			High:       data.Daily.TempMax[i],
-			Low:        data.Daily.TempMin[i],
-			WindSpeed:  data.Daily.WindSpeed[i],
-			Humidity:   data.Daily.RelativeHumidity[i],
+			Conditions: p.getWeatherDescription(data.Daily.WeatherCode[sourceIdx]),
+			High:       data.Daily.TempMax[sourceIdx],
+			Low:        data.Daily.TempMin[sourceIdx],
+			WindSpeed:  data.Daily.WindSpeed[sourceIdx],
+			Humidity:   data.Daily.RelativeHumidity[sourceIdx],
 		}
+	}
+
+	// Get today's high/low from the first element of daily data
+	var highTemp, lowTemp float64
+	if len(data.Daily.TempMax) > 0 && len(data.Daily.TempMin) > 0 {
+		highTemp = data.Daily.TempMax[0] // Today's high temperature
+		lowTemp = data.Daily.TempMin[0]  // Today's low temperature
 	}
 
 	current := &weather.CurrentWeather{
@@ -228,6 +243,8 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 		FeelsLike:   data.CurrentWeather.Temperature,
 		Humidity:    data.CurrentWeather.RelativeHumidity,
 		WindSpeed:   data.CurrentWeather.WindSpeed,
+		TempMax:     highTemp,
+		TempMin:     lowTemp,
 	}
 
 	return &weather.Forecast{
@@ -239,7 +256,7 @@ func (p *Provider) GetForecast(location string) (*weather.Forecast, error) {
 
 func (p *Provider) fetchData(url string, target interface{}) error {
 	if p.debugMode {
-		fmt.Printf("Debug URL: %s\n", url)
+		fmt.Printf("Debug fetchData URL: %s\n", url)
 	}
 
 	resp, err := http.Get(url)
@@ -253,7 +270,7 @@ func (p *Provider) fetchData(url string, target interface{}) error {
 		return fmt.Errorf("error reading response: %v", err)
 	}
 	if p.debugMode {
-		fmt.Printf("Debug response: %s\n", string(body))
+		fmt.Printf("Debug fetchData response: %s\n", string(body))
 	}
 
 	if resp.StatusCode != http.StatusOK {

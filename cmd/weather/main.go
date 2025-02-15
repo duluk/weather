@@ -44,13 +44,14 @@ func displayCurrentWeather(w *weather.CurrentWeather) {
 }
 
 func displayForecast(f *weather.Forecast) {
-	header := fmt.Sprintf("Weather Summary for %s:", f.Location)
-	fmt.Printf("%s\n", header)
-	fmt.Printf("%s\n", strings.Repeat("-", len(header)))
-
+	var header string
 	if f.Current != nil {
 		displayCurrentWeather(f.Current)
 		fmt.Println()
+	} else {
+		header := fmt.Sprintf("Weather Summary for %s:", f.Location)
+		fmt.Printf("%s\n", header)
+		fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 	}
 
 	header = fmt.Sprintf("5-Day Forecast for %s:", f.Location)
@@ -58,8 +59,10 @@ func displayForecast(f *weather.Forecast) {
 	fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 
 	for _, day := range f.DailyItems {
-		fmt.Printf("%s: ", day.Date.Format("2006-01-02"))
-		fmt.Printf("%-20s High: %4.1f°F. Low: %4.1f°F.",
+		fmt.Printf("%s %s: ",
+			day.Date.Format("Mon"),        // Day of week
+			day.Date.Format("2006-01-02")) // Date
+		fmt.Printf("%-25s High: %4.1f°F. Low: %4.1f°F.",
 			cases.Title(language.English).String(day.Conditions),
 			day.High,
 			day.Low)
@@ -135,6 +138,10 @@ func main() {
 			fmt.Printf("Error getting forecast: %v\n", err)
 			return
 		}
+		if debugMode {
+			fmt.Printf("Current weather: %v\n", forecast)
+		}
+
 		displayForecast(forecast)
 	} else {
 		current, err := provider.GetCurrentWeather(location)

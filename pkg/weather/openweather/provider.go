@@ -279,7 +279,7 @@ func (p *Provider) fetchData(location string, isForecast bool, target interface{
 		defer resp.Body.Close()
 
 		if p.debugMode {
-			fmt.Printf("Debug URL: %s\n", url)
+			fmt.Printf("Debug fetchData URL: %s\n", url)
 		}
 
 		body, err = io.ReadAll(resp.Body)
