@@ -29,8 +29,8 @@ all: check build
 
 build: $(addprefix $(BINARY_DIR)/,$(BIN_FILES))
 
-$(BINARY_DIR)/%: cmd/%/main.go $(PKG_FILES)
-	$(GO) build $(GOFLAGS) -o $@ $<
+$(BINARY_DIR)/%: cmd/%/main.go
+	$(GO) build $(GOFLAGS) -o $@ ./cmd/$*
 
 list:
 	@echo "CMD_FILES: $(CMD_FILES)"
