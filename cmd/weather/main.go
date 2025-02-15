@@ -9,6 +9,7 @@ import (
 	"golang.org/x/text/language"
 
 	"github.com/duluk/weather/pkg/weather"
+	"github.com/duluk/weather/pkg/weather/openmeteo"
 	"github.com/duluk/weather/pkg/weather/openweather"
 )
 
@@ -74,11 +75,12 @@ func displayForecast(f *weather.Forecast) {
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: weather <zipcode or city,state> [forecast] [-test] [-debug]")
+		fmt.Println("Usage: weather <zipcode or city,state> [forecast] [-test] [-debug] [-provider=<name>]")
 		fmt.Println("Examples: weather 02108")
 		fmt.Println("          weather \"Boston,MA\"")
 		fmt.Println("          weather \"Boston,MA\" forecast")
 		fmt.Println("          weather \"Boston,MA\" forecast -test")
+		fmt.Println("          weather \"Boston,MA\" -provider=openmeteo")
 		return
 	}
 
@@ -86,9 +88,15 @@ func main() {
 	wantForecast := false
 	useTestData := false
 	debugMode := false
+	providerName := "openmeteo"
 
 	for i := 2; i < len(os.Args); i++ {
-		switch os.Args[i] {
+		arg := os.Args[i]
+		if strings.HasPrefix(arg, "-provider=") {
+			providerName = strings.TrimPrefix(arg, "-provider=")
+			continue
+		}
+		switch arg {
 		case "forecast":
 			wantForecast = true
 		case "-test":
@@ -98,14 +106,28 @@ func main() {
 		}
 	}
 
-	apiKey, err := getAPIKey()
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		fmt.Println("Please set the Open Weather API key, either via the environment variable, OPENWEATHER_API_KEY, or a file in ~/.config/weather/openweather_api_key")
+	var provider weather.Provider
+	switch providerName {
+	case "openweather":
+		apiKey, err := getAPIKey()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			fmt.Println("Please set the Open Weather API key, either via the environment variable, OPENWEATHER_API_KEY, or a file in ~/.config/weather/openweather_api_key")
+			return
+		}
+		if debugMode {
+			fmt.Printf("Using Open Weather API key: %s\n", apiKey)
+		}
+		provider = openweather.New(apiKey, useTestData, debugMode)
+	case "openmeteo":
+		if debugMode {
+			fmt.Println("Using Open Meteo API")
+		}
+		provider = openmeteo.New(debugMode)
+	default:
+		fmt.Printf("Unknown provider: %s\n", providerName)
 		return
 	}
-
-	provider := openweather.New(apiKey, useTestData, debugMode)
 
 	if wantForecast {
 		forecast, err := provider.GetForecast(location)
