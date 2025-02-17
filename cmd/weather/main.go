@@ -36,8 +36,8 @@ func displayCurrentWeather(w *weather.CurrentWeather) {
 	fmt.Printf("%s\n", strings.Repeat("-", len(header)))
 	fmt.Printf("Conditions:  %s\n", w.Conditions)
 	fmt.Printf("Temperature: %.1f°F\n", w.Temperature)
-	fmt.Printf("  Max:       %.1f°F\n", w.TempMax)
-	fmt.Printf("  Min:       %.1f°F\n", w.TempMin)
+	fmt.Printf("  High:      %.1f°F\n", w.TempMax)
+	fmt.Printf("  Low:       %.1f°F\n", w.TempMin)
 	fmt.Printf("Feels Like:  %.1f°F\n", w.FeelsLike)
 	fmt.Printf("Humidity:    %d%%\n", w.Humidity)
 	fmt.Printf("Wind Speed:  %.1f mph\n", w.WindSpeed)
@@ -62,15 +62,15 @@ func displayForecast(f *weather.Forecast) {
 		fmt.Printf("%s %s: ",
 			day.Date.Format("Mon"),
 			day.Date.Format("2006-01-02"))
-		fmt.Printf("%-25s High: %4.1f°F. Low: %4.1f°F.",
+		fmt.Printf("%-25s High: %4.1f°F  Low: %4.1f°F ",
 			cases.Title(language.English).String(day.Conditions),
 			day.High,
 			day.Low)
 		if day.WindSpeed > 0 {
-			fmt.Printf(" Max winds: %4.1f mph.", day.WindSpeed)
+			fmt.Printf(" Max winds: %4.1f mph ", day.WindSpeed)
 		}
 		if day.Humidity > 0 {
-			fmt.Printf(" Humidity: %d%%.", day.Humidity)
+			fmt.Printf(" Humidity: %d%%", day.Humidity)
 		}
 		fmt.Println()
 	}
